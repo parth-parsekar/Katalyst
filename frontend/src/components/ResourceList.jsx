@@ -70,7 +70,7 @@ const ResourceCard = ({ resource, onUpdateStatus, onDelete }) => {
           </span>
         </div>
         
-        <div className="flex flex-wrap items-center gap-1 bg-background/50 p-1 rounded-lg border border-white/5 w-full sm:w-auto">
+        <div className="grid grid-cols-3 sm:flex sm:items-center gap-1 bg-background/50 p-1 rounded-lg border border-white/5 w-full sm:w-auto">
           {['To-Do', 'In Progress', 'Completed'].map((s) => {
             const Icon = s === 'To-Do' ? Clock : s === 'In Progress' ? PlayCircle : CheckCircle;
             const isActive = status === s;
@@ -79,7 +79,7 @@ const ResourceCard = ({ resource, onUpdateStatus, onDelete }) => {
                 key={s}
                 onClick={() => onUpdateStatus(_id, s)}
                 className={clsx(
-                  "px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1.5",
+                  "px-1 sm:px-3 py-1.5 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-md transition-all flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 text-center leading-tight",
                   isActive 
                     ? s === 'Completed' ? "bg-success/20 text-success" 
                       : s === 'In Progress' ? "bg-warning/20 text-warning"
@@ -87,8 +87,8 @@ const ResourceCard = ({ resource, onUpdateStatus, onDelete }) => {
                     : "text-textMuted hover:bg-surface"
                 )}
               >
-                <Icon className={clsx("w-3.5 h-3.5", isActive ? "" : "opacity-50")} />
-                {s}
+                <Icon className={clsx("w-3.5 h-3.5 sm:w-3.5 sm:h-3.5 shrink-0", isActive ? "" : "opacity-50")} />
+                <span className="whitespace-normal sm:whitespace-nowrap">{s}</span>
               </button>
             )
           })}
