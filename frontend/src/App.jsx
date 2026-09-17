@@ -4,7 +4,7 @@ import Dashboard from './components/Dashboard';
 function App() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="py-6 px-8 border-b border-surface/50 bg-background/80 backdrop-blur-md sticky top-0 z-10">
+      <header className="py-4 px-4 sm:py-6 sm:px-8 border-b border-surface/50 bg-background/80 backdrop-blur-md sticky top-0 z-10">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center text-primary border border-primary/30 shadow-[0_0_15px_rgba(59,130,246,0.3)]">
@@ -15,7 +15,7 @@ function App() {
         </div>
       </header>
 
-      <main className="flex-1 w-full max-w-7xl mx-auto p-8 relative">
+      <main className="flex-1 w-full max-w-7xl mx-auto p-4 sm:p-8 relative overflow-hidden sm:overflow-visible">
         <div className="absolute top-[-20%] left-[-10%] w-96 h-96 bg-primary/10 rounded-full blur-[100px] pointer-events-none"></div>
         <div className="absolute bottom-[-20%] right-[-10%] w-96 h-96 bg-secondary/10 rounded-full blur-[100px] pointer-events-none"></div>
         

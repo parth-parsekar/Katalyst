@@ -67,7 +67,7 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
       {/* Left Column - Form & Stats */}
       <div className="space-y-8 flex flex-col">
         {error && (
@@ -79,7 +79,7 @@ const Dashboard = () => {
         
         <StatsWidget resources={resources} />
         
-        <div className="sticky top-28">
+        <div className="relative lg:sticky top-28">
           <AddResourceForm onAdd={handleAddResource} />
         </div>
       </div>

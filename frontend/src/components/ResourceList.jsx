@@ -63,14 +63,14 @@ const ResourceCard = ({ resource, onUpdateStatus, onDelete }) => {
         )}
       </div>
 
-      <div className="flex items-center justify-between mt-6 pt-4 border-t border-white/5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-6 pt-4 border-t border-white/5">
         <div className="flex items-center gap-2 text-xs text-textMuted">
           <span className="flex items-center gap-1">
             Added {new Date(dateAdded).toLocaleDateString()}
           </span>
         </div>
         
-        <div className="flex items-center gap-1 bg-background/50 p-1 rounded-lg border border-white/5">
+        <div className="flex flex-wrap items-center gap-1 bg-background/50 p-1 rounded-lg border border-white/5 w-full sm:w-auto">
           {['To-Do', 'In Progress', 'Completed'].map((s) => {
             const Icon = s === 'To-Do' ? Clock : s === 'In Progress' ? PlayCircle : CheckCircle;
             const isActive = status === s;
