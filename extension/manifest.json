@@ -9,7 +9,7 @@
     "tabs"
   ],
   "host_permissions": [
-    "http://localhost:5000/*",
+    "https://katalyst-fybi.onrender.com/*",
     "https://www.youtube.com/*"
   ],
   "action": {
