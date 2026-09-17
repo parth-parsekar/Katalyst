@@ -103,7 +103,7 @@ function setupEventListeners() {
 
   // Open Web App
   document.getElementById('openWebBtn').addEventListener('click', () => {
-    chrome.tabs.create({ url: 'http://localhost:5173' });
+    chrome.tabs.create({ url: 'https://katalyst-app.netlify.app' });
   });
 }
 
