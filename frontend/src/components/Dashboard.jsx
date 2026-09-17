@@ -5,7 +5,7 @@ import AddResourceForm from './AddResourceForm';
 import ResourceList from './ResourceList';
 import { Loader2, AlertCircle } from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/resources';
+const API_URL = import.meta.env.VITE_API_URL || 'https://katalyst-fybi.onrender.com';
 
 const Dashboard = () => {
   const [resources, setResources] = useState([]);
