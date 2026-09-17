@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:5000/api/resources';
+const API_URL = 'https://katalyst-fybi.onrender.com/api/resources';
 
 let allResources = [];
 
