@@ -10,7 +10,8 @@
   ],
   "host_permissions": [
     "https://katalyst-fybi.onrender.com/*",
-    "https://www.youtube.com/*"
+    "https://www.youtube.com/*",
+    "<all_urls>"
   ],
   "action": {
     "default_popup": "popup.html",

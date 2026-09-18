@@ -37,6 +37,9 @@ function autoCaptureCurrentTab() {
         titleInput.value = activeTab.title || '';
 
         checkYouTubeUrl(activeTab.url);
+
+        // Auto-suggest description from page content
+        autoSuggestDescription(activeTab.id);
       }
     }
   });
@@ -105,6 +108,18 @@ function setupEventListeners() {
   document.getElementById('openWebBtn').addEventListener('click', () => {
     chrome.tabs.create({ url: 'https://katalyst-app.netlify.app' });
   });
+
+  // Suggest Description button
+  document.getElementById('suggestDescBtn').addEventListener('click', () => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs && tabs[0]) {
+        autoSuggestDescription(tabs[0].id);
+      }
+    });
+  });
+
+  // Dynamically add previously-used categories to the datalist
+  updateCategorySuggestions();
 }
 
 // Handle adding new resource
@@ -189,10 +204,79 @@ async function fetchResources() {
       allResources = await res.json();
       updateStats();
       filterAndRenderList();
+      populateCategoryFilter();
+      updateCategorySuggestions();
     }
   } catch (error) {
     console.error('Error fetching resources:', error);
   }
+}
+
+// Auto-suggest description from page meta tags
+function autoSuggestDescription(tabId) {
+  chrome.scripting.executeScript({
+    target: { tabId: tabId },
+    func: () => {
+      // Try meta description
+      const metaDesc = document.querySelector('meta[name="description"]');
+      if (metaDesc && metaDesc.content) return metaDesc.content.trim();
+
+      // Try og:description  
+      const ogDesc = document.querySelector('meta[property="og:description"]');
+      if (ogDesc && ogDesc.content) return ogDesc.content.trim();
+
+      // For YouTube, try the video description snippet
+      const ytDesc = document.querySelector('#description-inline-expander yt-attributed-string, #description yt-attributed-string, meta[name="description"]');
+      if (ytDesc && ytDesc.textContent) return ytDesc.textContent.trim().slice(0, 200);
+
+      // Fallback: grab first paragraph text
+      const firstP = document.querySelector('article p, main p, .content p, p');
+      if (firstP && firstP.textContent) return firstP.textContent.trim().slice(0, 200);
+
+      return null;
+    }
+  }, (results) => {
+    const descField = document.getElementById('resDescription');
+    if (results && results[0] && results[0].result) {
+      const suggestion = results[0].result.slice(0, 200);
+      descField.value = suggestion;
+      descField.placeholder = suggestion;
+      showToast('Description suggested from page!');
+    } else {
+      showToast('Could not extract description from this page', true);
+    }
+  });
+}
+
+// Populate category filter dropdown from saved resources
+function populateCategoryFilter() {
+  const filterSelect = document.getElementById('filterCategory');
+  const categories = [...new Set(allResources.map(r => r.category).filter(Boolean))];
+  
+  // Keep "All" option, clear the rest
+  filterSelect.innerHTML = '<option value="All">All Categories</option>';
+  categories.forEach(cat => {
+    const opt = document.createElement('option');
+    opt.value = cat;
+    opt.textContent = cat;
+    filterSelect.appendChild(opt);
+  });
+}
+
+// Add previously-used categories to the datalist suggestions
+function updateCategorySuggestions() {
+  const datalist = document.getElementById('categorySuggestions');
+  if (!datalist) return;
+  const existingValues = new Set(Array.from(datalist.options).map(o => o.value));
+  const usedCategories = [...new Set(allResources.map(r => r.category).filter(Boolean))];
+  
+  usedCategories.forEach(cat => {
+    if (!existingValues.has(cat)) {
+      const opt = document.createElement('option');
+      opt.value = cat;
+      datalist.appendChild(opt);
+    }
+  });
 }
 
 // Filter & render resources list

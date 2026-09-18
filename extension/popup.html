@@ -90,13 +90,17 @@
           <div class="grid-2">
             <div class="form-group">
               <label for="resCategory">Category</label>
-              <select id="resCategory" class="form-select">
-                <option value="DSA">DSA</option>
-                <option value="Web Dev">Web Dev</option>
-                <option value="System Design">System Design</option>
-                <option value="Cloud">Cloud</option>
-                <option value="Other">Other</option>
-              </select>
+              <input type="text" id="resCategory" class="form-input" list="categorySuggestions" placeholder="e.g. DSA, Web Dev, AI/ML..." required>
+              <datalist id="categorySuggestions">
+                <option value="DSA">
+                <option value="Web Dev">
+                <option value="System Design">
+                <option value="Cloud">
+                <option value="AI/ML">
+                <option value="DevOps">
+                <option value="Database">
+                <option value="Mobile Dev">
+              </datalist>
             </div>
 
             <div class="form-group">
@@ -111,7 +115,16 @@
 
           <div class="form-group">
             <label for="resDescription">Notes / Description (Optional)</label>
-            <textarea id="resDescription" class="form-textarea" rows="2" placeholder="Key takeaways or notes..."></textarea>
+            <div class="input-with-action" style="align-items: flex-start;">
+              <textarea id="resDescription" class="form-textarea" rows="2" placeholder="Key takeaways or notes..."></textarea>
+              <button type="button" id="suggestDescBtn" class="action-btn-sm" style="height: auto; padding: 8px 10px;" title="Auto-suggest from page content">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 2a5 5 0 0 1 5 5c0 2.76-2.24 5-5 5s-5-2.24-5-5a5 5 0 0 1 5-5z"/>
+                  <path d="M9 12h6M10 15h4M10 18h4"/>
+                </svg>
+                Suggest
+              </button>
+            </div>
           </div>
 
           <button type="submit" class="submit-btn">
@@ -132,10 +145,7 @@
         <input type="text" id="searchInput" class="form-input" placeholder="Search resources...">
         <select id="filterCategory" class="form-select" style="width: 130px;">
           <option value="All">All Categories</option>
-          <option value="DSA">DSA</option>
-          <option value="Web Dev">Web Dev</option>
-          <option value="System Design">System Design</option>
-          <option value="Cloud">Cloud</option>
+          <!-- Dynamically populated from saved resources -->
         </select>
       </div>
 
@@ -166,10 +176,10 @@
       </div>
 
       <div class="glass-card">
-        <h4 style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">Quick Server Connection</h4>
+        <h4 style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">Server Connection</h4>
         <p style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.4;">
-          API Server: <span style="color: var(--accent-cyan); font-family: monospace;">http://localhost:5000/api/resources</span><br>
-          Connected via local Katalyst Express Backend.
+          API Server: <span style="color: var(--accent-cyan); font-family: monospace;">katalyst-fybi.onrender.com</span><br>
+          Connected via Katalyst Cloud Backend (Render).
         </p>
       </div>
     </div>
