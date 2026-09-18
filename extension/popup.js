@@ -155,7 +155,7 @@ async function handleAddResource(e) {
       showToast(err.message || 'Failed to save resource', true);
     }
   } catch (error) {
-    showToast('Backend server disconnected (check localhost:5000)', true);
+    showToast('Backend unreachable (Render server might be waking up, try again in 30s)', true);
   }
 }
 
