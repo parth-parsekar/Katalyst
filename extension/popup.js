@@ -215,37 +215,44 @@ async function fetchResources() {
 
 // Auto-suggest description from page meta tags
 function autoSuggestDescription(tabId) {
-  chrome.scripting.executeScript({
-    target: { tabId: tabId },
-    func: () => {
-      // Try meta description
-      const metaDesc = document.querySelector('meta[name="description"]');
-      if (metaDesc && metaDesc.content) return metaDesc.content.trim();
-
-      // Try og:description  
-      const ogDesc = document.querySelector('meta[property="og:description"]');
-      if (ogDesc && ogDesc.content) return ogDesc.content.trim();
-
-      // For YouTube, try the video description snippet
-      const ytDesc = document.querySelector('#description-inline-expander yt-attributed-string, #description yt-attributed-string, meta[name="description"]');
-      if (ytDesc && ytDesc.textContent) return ytDesc.textContent.trim().slice(0, 200);
-
-      // Fallback: grab first paragraph text
-      const firstP = document.querySelector('article p, main p, .content p, p');
-      if (firstP && firstP.textContent) return firstP.textContent.trim().slice(0, 200);
-
-      return null;
+  // First check if the tab URL is scriptable (skip chrome:// internal pages)
+  chrome.tabs.get(tabId, (tab) => {
+    if (chrome.runtime.lastError || !tab || !tab.url) return;
+    if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('about:')) {
+      return; // Silently skip — can't inject scripts on browser internal pages
     }
-  }, (results) => {
-    const descField = document.getElementById('resDescription');
-    if (results && results[0] && results[0].result) {
-      const suggestion = results[0].result.slice(0, 200);
-      descField.value = suggestion;
-      descField.placeholder = suggestion;
-      showToast('Description suggested from page!');
-    } else {
-      showToast('Could not extract description from this page', true);
-    }
+
+    chrome.scripting.executeScript({
+      target: { tabId: tabId },
+      func: () => {
+        // Try meta description
+        const metaDesc = document.querySelector('meta[name="description"]');
+        if (metaDesc && metaDesc.content) return metaDesc.content.trim();
+
+        // Try og:description  
+        const ogDesc = document.querySelector('meta[property="og:description"]');
+        if (ogDesc && ogDesc.content) return ogDesc.content.trim();
+
+        // For YouTube, try the video description snippet
+        const ytDesc = document.querySelector('#description-inline-expander yt-attributed-string, #description yt-attributed-string, meta[name="description"]');
+        if (ytDesc && ytDesc.textContent) return ytDesc.textContent.trim().slice(0, 200);
+
+        // Fallback: grab first paragraph text
+        const firstP = document.querySelector('article p, main p, .content p, p');
+        if (firstP && firstP.textContent) return firstP.textContent.trim().slice(0, 200);
+
+        return null;
+      }
+    }, (results) => {
+      if (chrome.runtime.lastError) return; // Silently handle any remaining errors
+      const descField = document.getElementById('resDescription');
+      if (results && results[0] && results[0].result) {
+        const suggestion = results[0].result.slice(0, 200);
+        descField.value = suggestion;
+        descField.placeholder = suggestion;
+        showToast('Description suggested from page!');
+      }
+    });
   });
 }
 
