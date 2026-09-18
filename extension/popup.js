@@ -147,7 +147,8 @@ async function handleAddResource(e) {
     url,
     category,
     status,
-    description
+    description,
+    timestamp: timestamp || undefined
   };
 
   try {
@@ -296,14 +297,38 @@ function filterAndRenderList() {
     return;
   }
 
-  listContainer.innerHTML = filtered.map(item => `
+  listContainer.innerHTML = filtered.map(item => {
+    // Build a timestamped URL for YouTube videos
+    let displayUrl = item.url;
+    if (item.timestamp && (item.url.includes('youtube.com') || item.url.includes('youtu.be'))) {
+      // Only add timestamp to URL if not already present
+      if (!item.url.includes('&t=') && !item.url.includes('?t=')) {
+        const ts = convertTimestampToSeconds(item.timestamp);
+        if (ts) {
+          const joinChar = item.url.includes('?') ? '&' : '?';
+          displayUrl = `${item.url}${joinChar}t=${ts}`;
+        }
+      }
+    }
+
+    return `
     <div class="resource-card" data-id="${item._id}">
       <div class="resource-top">
-        <a href="${item.url}" target="_blank" class="resource-title">${escapeHtml(item.title)}</a>
+        <a href="${displayUrl}" target="_blank" class="resource-title">${escapeHtml(item.title)}</a>
         <span class="platform-badge ${(item.platform || 'other').toLowerCase()}">${item.platform || 'Web'}</span>
       </div>
       
       ${item.description ? `<p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">${escapeHtml(item.description)}</p>` : ''}
+
+      ${item.timestamp ? `
+        <a href="${displayUrl}" target="_blank" class="timestamp-badge" title="Jump to ${item.timestamp} in video">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          ${escapeHtml(item.timestamp)}
+        </a>
+      ` : ''}
 
       <div class="resource-meta">
         <span class="tag-badge">${item.category || 'General'}</span>
@@ -324,7 +349,7 @@ function filterAndRenderList() {
         </div>
       </div>
     </div>
-  `).join('');
+  `}).join('');
 
   // Attach status change events
   document.querySelectorAll('.status-select').forEach(sel => {
