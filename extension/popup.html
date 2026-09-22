@@ -114,16 +114,32 @@
           </div>
 
           <div class="form-group">
-            <label for="resDescription">Notes / Description (Optional)</label>
-            <div class="input-with-action" style="align-items: flex-start;">
-              <textarea id="resDescription" class="form-textarea" rows="2" placeholder="Key takeaways or notes..."></textarea>
-              <button type="button" id="suggestDescBtn" class="action-btn-sm" style="height: auto; padding: 8px 10px;" title="Auto-suggest from page content">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 2a5 5 0 0 1 5 5c0 2.76-2.24 5-5 5s-5-2.24-5-5a5 5 0 0 1 5-5z"/>
-                  <path d="M9 12h6M10 15h4M10 18h4"/>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+              <label for="resDescription" style="margin-bottom: 0;">Notes / Description (Optional)</label>
+              <button type="button" id="suggestDescBtn" class="action-btn-sm" style="font-size: 0.68rem; padding: 3px 8px;" title="Re-generate suggestion from page">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <polyline points="23 4 23 10 17 10"></polyline>
+                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
                 </svg>
-                Suggest
+                Re-suggest
               </button>
+            </div>
+            <textarea id="resDescription" class="form-textarea" rows="2" placeholder="Write your own notes or use the suggestion below..."></textarea>
+            <!-- Auto-suggestion chip -->
+            <div id="descSuggestionChip" class="suggestion-chip" style="display: none;">
+              <div class="suggestion-chip-header">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <span>Suggested from page</span>
+                <div style="display: flex; gap: 6px; margin-left: auto;">
+                  <button type="button" id="useDescSuggestion" class="chip-action-btn use">Use this</button>
+                  <button type="button" id="dismissDescSuggestion" class="chip-action-btn dismiss">✕</button>
+                </div>
+              </div>
+              <p id="descSuggestionText" class="suggestion-chip-text"></p>
             </div>
           </div>
 

@@ -507,3 +507,69 @@ body {
   0%, 100% { opacity: 0.7; }
   50% { opacity: 1; }
 }
+
+/* ── Suggestion chip ─────────────────────────────────── */
+.suggestion-chip {
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.22);
+  border-radius: 8px;
+  animation: chipSlideIn 0.2s ease;
+}
+
+@keyframes chipSlideIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.suggestion-chip-header {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-secondary);
+  font-size: 0.68rem;
+  font-weight: 500;
+  margin-bottom: 5px;
+}
+
+.suggestion-chip-header svg {
+  flex-shrink: 0;
+  color: #818cf8;
+}
+
+.suggestion-chip-text {
+  font-size: 0.73rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.chip-action-btn {
+  border: none;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  transition: all 0.15s ease;
+}
+
+.chip-action-btn.use {
+  background: rgba(99, 102, 241, 0.25);
+  color: #a5b4fc;
+}
+.chip-action-btn.use:hover {
+  background: rgba(99, 102, 241, 0.45);
+  color: #fff;
+}
+
+.chip-action-btn.dismiss {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+}
+.chip-action-btn.dismiss:hover {
+  background: rgba(244, 63, 94, 0.2);
+  color: #f43f5e;
+}
+

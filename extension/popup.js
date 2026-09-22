@@ -113,9 +113,23 @@ function setupEventListeners() {
   document.getElementById('suggestDescBtn').addEventListener('click', () => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs && tabs[0]) {
-        autoSuggestDescription(tabs[0].id);
+        autoSuggestDescription(tabs[0].id, true); // true = user-triggered, show toast
       }
     });
+  });
+
+  // Chip: use the suggestion
+  document.getElementById('useDescSuggestion').addEventListener('click', () => {
+    const suggestionText = document.getElementById('descSuggestionText').textContent;
+    const descField = document.getElementById('resDescription');
+    descField.value = suggestionText;
+    document.getElementById('descSuggestionChip').style.display = 'none';
+    descField.focus();
+  });
+
+  // Chip: dismiss the suggestion
+  document.getElementById('dismissDescSuggestion').addEventListener('click', () => {
+    document.getElementById('descSuggestionChip').style.display = 'none';
   });
 
   // Dynamically add previously-used categories to the datalist
@@ -289,44 +303,75 @@ async function fetchResources() {
   }
 }
 
-// Auto-suggest description from page meta tags
-function autoSuggestDescription(tabId) {
-  // First check if the tab URL is scriptable (skip chrome:// internal pages)
+// Auto-suggest description: extract page content, condense to 2-3 sentences, show as chip
+function autoSuggestDescription(tabId, userTriggered = false) {
   chrome.tabs.get(tabId, (tab) => {
     if (chrome.runtime.lastError || !tab || !tab.url) return;
-    if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('about:')) {
-      return; // Silently skip — can't inject scripts on browser internal pages
-    }
+    if (
+      tab.url.startsWith('chrome://') ||
+      tab.url.startsWith('chrome-extension://') ||
+      tab.url.startsWith('about:')
+    ) return;
 
     chrome.scripting.executeScript({
       target: { tabId: tabId },
       func: () => {
-        // Try meta description
-        const metaDesc = document.querySelector('meta[name="description"]');
-        if (metaDesc && metaDesc.content) return metaDesc.content.trim();
+        // Helper: split text into sentences
+        function toSentences(text) {
+          return text
+            .replace(/\s+/g, ' ')
+            .trim()
+            .match(/[^.!?]+[.!?]+/g) || [];
+        }
 
-        // Try og:description  
-        const ogDesc = document.querySelector('meta[property="og:description"]');
-        if (ogDesc && ogDesc.content) return ogDesc.content.trim();
+        // 1. YouTube description
+        const ytDesc = document.querySelector(
+          '#description-inline-expander yt-attributed-string, #description yt-attributed-string'
+        );
+        if (ytDesc && ytDesc.textContent && ytDesc.textContent.trim().length > 30) {
+          const sentences = toSentences(ytDesc.textContent.trim());
+          if (sentences.length >= 1) return sentences.slice(0, 3).join(' ').trim();
+        }
 
-        // For YouTube, try the video description snippet
-        const ytDesc = document.querySelector('#description-inline-expander yt-attributed-string, #description yt-attributed-string, meta[name="description"]');
-        if (ytDesc && ytDesc.textContent) return ytDesc.textContent.trim().slice(0, 200);
+        // 2. og:description
+        const og = document.querySelector('meta[property="og:description"]');
+        if (og && og.content && og.content.trim().length > 20) {
+          const sentences = toSentences(og.content.trim());
+          if (sentences.length >= 1) return sentences.slice(0, 3).join(' ').trim();
+        }
 
-        // Fallback: grab first paragraph text
-        const firstP = document.querySelector('article p, main p, .content p, p');
-        if (firstP && firstP.textContent) return firstP.textContent.trim().slice(0, 200);
+        // 3. meta description
+        const meta = document.querySelector('meta[name="description"]');
+        if (meta && meta.content && meta.content.trim().length > 20) {
+          const sentences = toSentences(meta.content.trim());
+          if (sentences.length >= 1) return sentences.slice(0, 3).join(' ').trim();
+        }
+
+        // 4. First meaningful paragraph on the page
+        const paras = Array.from(document.querySelectorAll(
+          'article p, main p, .content p, [role="main"] p, p'
+        ));
+        for (const p of paras) {
+          const text = p.textContent.trim();
+          if (text.length > 60) {
+            const sentences = toSentences(text);
+            if (sentences.length >= 1) return sentences.slice(0, 3).join(' ').trim();
+          }
+        }
 
         return null;
       }
     }, (results) => {
-      if (chrome.runtime.lastError) return; // Silently handle any remaining errors
-      const descField = document.getElementById('resDescription');
+      if (chrome.runtime.lastError) return;
       if (results && results[0] && results[0].result) {
-        const suggestion = results[0].result.slice(0, 200);
-        descField.value = suggestion;
-        descField.placeholder = suggestion;
-        showToast('Description suggested from page!');
+        const raw = results[0].result;
+        // Show the suggestion chip, never touch the textarea
+        const chip = document.getElementById('descSuggestionChip');
+        document.getElementById('descSuggestionText').textContent = raw;
+        chip.style.display = 'block';
+        if (userTriggered) showToast('Suggestion updated from page!');
+      } else if (userTriggered) {
+        showToast('No usable text found on this page', true);
       }
     });
   });
