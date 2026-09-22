@@ -133,18 +133,70 @@ async function handleAddResource(e) {
   const status = document.getElementById('resStatus').value;
   const description = document.getElementById('resDescription').value.trim();
 
-  // If YouTube timestamp provided, convert to &t=1m24s format
-  if (timestamp && (url.includes('youtube.com') || url.includes('youtu.be'))) {
+  const isYouTube = url.includes('youtube.com') || url.includes('youtu.be');
+
+  // Strip any existing timestamp param so we always store a clean base URL
+  let baseUrl = isYouTube ? stripYouTubeTimestamp(url) : url;
+
+  // Build the URL to save (with new timestamp appended if provided)
+  let urlToSave = baseUrl;
+  if (timestamp && isYouTube) {
     const formattedTs = convertTimestampToSeconds(timestamp);
     if (formattedTs) {
-      const joinChar = url.includes('?') ? '&' : '?';
-      url = `${url}${joinChar}t=${formattedTs}`;
+      const joinChar = baseUrl.includes('?') ? '&' : '?';
+      urlToSave = `${baseUrl}${joinChar}t=${formattedTs}`;
     }
   }
 
+  // --- Duplicate check for YouTube: update existing item instead of creating a new one ---
+  if (isYouTube) {
+    const incomingVideoId = extractYouTubeVideoId(url);
+    if (incomingVideoId) {
+      const existing = allResources.find(r => {
+        if (!r.url) return false;
+        return extractYouTubeVideoId(r.url) === incomingVideoId;
+      });
+
+      if (existing) {
+        // Update the existing item with the new timestamp, description, etc.
+        const updatePayload = {
+          url: urlToSave,
+          timestamp: timestamp || undefined,
+          description,
+          title,
+          category,
+          status,
+        };
+
+        try {
+          const res = await fetch(`${API_URL}/${existing._id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatePayload)
+          });
+
+          if (res.ok) {
+            showToast('Timestamp & note updated on existing item!');
+            document.getElementById('addResourceForm').reset();
+            autoCaptureCurrentTab();
+            fetchResources();
+            document.querySelector('[data-tab="listTab"]').click();
+          } else {
+            const err = await res.json();
+            showToast(err.message || 'Failed to update resource', true);
+          }
+        } catch (error) {
+          showToast('Backend unreachable (Render server might be waking up, try again in 30s)', true);
+        }
+        return; // Don't fall through to create a new item
+      }
+    }
+  }
+
+  // No existing item found — create a new one
   const payload = {
     title,
-    url,
+    url: urlToSave,
     category,
     status,
     description,
@@ -172,6 +224,30 @@ async function handleAddResource(e) {
     }
   } catch (error) {
     showToast('Backend unreachable (Render server might be waking up, try again in 30s)', true);
+  }
+}
+
+// Extract YouTube video ID from a URL (handles both watch?v= and youtu.be/)
+function extractYouTubeVideoId(url) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname.includes('youtube.com')) {
+      return parsed.searchParams.get('v');
+    } else if (parsed.hostname.includes('youtu.be')) {
+      return parsed.pathname.slice(1).split('?')[0];
+    }
+  } catch (_) {}
+  return null;
+}
+
+// Strip timestamp params from a YouTube URL so we can store a clean base URL
+function stripYouTubeTimestamp(url) {
+  try {
+    const parsed = new URL(url);
+    parsed.searchParams.delete('t');
+    return parsed.toString();
+  } catch (_) {
+    return url;
   }
 }
 
