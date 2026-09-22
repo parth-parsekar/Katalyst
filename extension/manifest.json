@@ -10,8 +10,12 @@
     "identity"
   ],
   "oauth2": {
-    "client_id": "YOUR_CHROME_EXTENSION_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
-    "scopes": ["openid", "email", "profile"]
+    "client_id": "879958487653-k4t24q8c1dvop1d9clus7r4oa2ijh8qr.apps.googleusercontent.com",
+    "scopes": [
+      "openid",
+      "email",
+      "profile"
+    ]
   },
   "host_permissions": [
     "https://katalyst-fybi.onrender.com/*",
