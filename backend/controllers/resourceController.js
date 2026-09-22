@@ -1,23 +1,23 @@
 const Resource = require('../models/Resource');
 
-// @desc    Get all resources
+// @desc    Get all resources (scoped to logged-in user)
 // @route   GET /api/resources
-// @access  Public
+// @access  Private
 const getResources = async (req, res) => {
   try {
-    const resources = await Resource.find().sort({ dateAdded: -1 });
+    const resources = await Resource.find({ userId: req.user.googleId }).sort({ dateAdded: -1 });
     res.status(200).json(resources);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Get a single resource
+// @desc    Get a single resource (scoped to user)
 // @route   GET /api/resources/:id
-// @access  Public
+// @access  Private
 const getResourceById = async (req, res) => {
   try {
-    const resource = await Resource.findById(req.params.id);
+    const resource = await Resource.findOne({ _id: req.params.id, userId: req.user.googleId });
     if (!resource) {
       return res.status(404).json({ message: 'Resource not found' });
     }
@@ -27,9 +27,9 @@ const getResourceById = async (req, res) => {
   }
 };
 
-// @desc    Create a new resource
+// @desc    Create a new resource (stamped with userId)
 // @route   POST /api/resources
-// @access  Public
+// @access  Private
 const createResource = async (req, res) => {
   try {
     const { title, description, url, category, timestamp } = req.body;
@@ -55,6 +55,7 @@ const createResource = async (req, res) => {
       platform,
       category,
       timestamp,
+      userId: req.user.googleId,   // <-- scope to the creator
     });
 
     const savedResource = await resource.save();
@@ -64,13 +65,13 @@ const createResource = async (req, res) => {
   }
 };
 
-// @desc    Update a resource
+// @desc    Update a resource (only owner can update)
 // @route   PUT /api/resources/:id
-// @access  Public
+// @access  Private
 const updateResource = async (req, res) => {
   try {
     const { status, title, description, category, url, timestamp } = req.body;
-    const resource = await Resource.findById(req.params.id);
+    const resource = await Resource.findOne({ _id: req.params.id, userId: req.user.googleId });
 
     if (!resource) {
       return res.status(404).json({ message: 'Resource not found' });
@@ -98,12 +99,12 @@ const updateResource = async (req, res) => {
   }
 };
 
-// @desc    Delete a resource
+// @desc    Delete a resource (only owner can delete)
 // @route   DELETE /api/resources/:id
-// @access  Public
+// @access  Private
 const deleteResource = async (req, res) => {
   try {
-    const resource = await Resource.findByIdAndDelete(req.params.id);
+    const resource = await Resource.findOneAndDelete({ _id: req.params.id, userId: req.user.googleId });
     if (!resource) {
       return res.status(404).json({ message: 'Resource not found' });
     }

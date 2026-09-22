@@ -6,8 +6,13 @@
   "permissions": [
     "activeTab",
     "scripting",
-    "tabs"
+    "tabs",
+    "identity"
   ],
+  "oauth2": {
+    "client_id": "YOUR_CHROME_EXTENSION_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
+    "scopes": ["openid", "email", "profile"]
+  },
   "host_permissions": [
     "https://katalyst-fybi.onrender.com/*",
     "https://www.youtube.com/*",

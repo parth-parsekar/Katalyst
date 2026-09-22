@@ -12,6 +12,11 @@ const resourceSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  userId: {
+    type: String,
+    required: true,
+    index: true,   // for fast per-user queries
+  },
   platform: {
     type: String, // e.g., 'YouTube', 'LeetCode'
   },

@@ -1,13 +1,121 @@
 const API_URL = 'https://katalyst-fybi.onrender.com/api/resources';
+const AUTH_URL = 'https://katalyst-fybi.onrender.com/api/auth/me';
 
 let allResources = [];
+let currentToken  = null;   // Google access token for this session
 
-document.addEventListener('DOMContentLoaded', () => {
-  initTabs();
-  autoCaptureCurrentTab();
-  fetchResources();
-  setupEventListeners();
+// ── Auth helpers ─────────────────────────────────────────────────────────────
+
+/** Wrapper around fetch() that always injects the Bearer token. */
+async function authFetch(url, options = {}) {
+  if (!currentToken) throw new Error('Not authenticated');
+  return fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+      Authorization: `Bearer ${currentToken}`,
+    },
+  });
+}
+
+/** Get a Google access token. interactive=false = silent (no popup). */
+function getGoogleToken(interactive) {
+  return new Promise((resolve, reject) => {
+    chrome.identity.getAuthToken({ interactive }, (token) => {
+      if (chrome.runtime.lastError || !token) {
+        reject(chrome.runtime.lastError || new Error('No token'));
+      } else {
+        resolve(token);
+      }
+    });
+  });
+}
+
+/** Remove cached token and clear session state. */
+function revokeToken(token) {
+  return new Promise((resolve) => {
+    chrome.identity.removeCachedAuthToken({ token }, resolve);
+  });
+}
+
+/** Show the main app UI and populate the user chip. */
+function showAppUI(user) {
+  document.getElementById('loginScreen').style.display  = 'none';
+  document.getElementById('appContent').style.display   = 'block';
+  document.getElementById('openWebBtn').style.display   = 'flex';
+  document.getElementById('userChip').style.display     = 'flex';
+
+  const avatar = document.getElementById('userAvatar');
+  const nameEl = document.getElementById('userName');
+  if (user.picture) {
+    avatar.src = user.picture;
+    avatar.style.display = 'block';
+  } else {
+    avatar.style.display = 'none';
+  }
+  nameEl.textContent = user.name || user.email || 'User';
+}
+
+/** Show the login screen and hide everything else. */
+function showLoginUI() {
+  document.getElementById('loginScreen').style.display  = 'flex';
+  document.getElementById('appContent').style.display   = 'none';
+  document.getElementById('openWebBtn').style.display   = 'none';
+  document.getElementById('userChip').style.display     = 'none';
+  document.getElementById('loginError').style.display   = 'none';
+}
+
+// ── Bootstrap ─────────────────────────────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', async () => {
+  showLoginUI(); // default: hide app until auth confirmed
+
+  try {
+    // Try silent sign-in first (no popup if already authorised)
+    const token = await getGoogleToken(false);
+    currentToken = token;
+
+    // Verify token & get user profile
+    const meRes = await authFetch(AUTH_URL);
+    if (!meRes.ok) throw new Error('Token rejected by server');
+    const user = await meRes.json();
+
+    showAppUI(user);
+    initTabs();
+    autoCaptureCurrentTab();
+    fetchResources();
+    setupEventListeners();
+  } catch (_) {
+    // Not signed in yet — show login screen
+    showLoginUI();
+    setupAuthListeners();
+  }
 });
+
+/** Wire up Google sign-in and sign-out buttons. */
+function setupAuthListeners() {
+  document.getElementById('googleSignInBtn').addEventListener('click', async () => {
+    const errEl = document.getElementById('loginError');
+    errEl.style.display = 'none';
+    try {
+      const token = await getGoogleToken(true); // interactive = show popup
+      currentToken = token;
+
+      const meRes = await authFetch(AUTH_URL);
+      if (!meRes.ok) throw new Error('Token rejected');
+      const user = await meRes.json();
+
+      showAppUI(user);
+      initTabs();
+      autoCaptureCurrentTab();
+      fetchResources();
+      setupEventListeners();
+    } catch (err) {
+      errEl.style.display = 'block';
+    }
+  });
+}
 
 // Tab switching
 function initTabs() {
@@ -109,6 +217,16 @@ function setupEventListeners() {
     chrome.tabs.create({ url: 'https://katalyst-app.netlify.app' });
   });
 
+  // Sign out
+  document.getElementById('signOutBtn').addEventListener('click', async () => {
+    if (currentToken) await revokeToken(currentToken);
+    currentToken = null;
+    allResources = [];
+    showLoginUI();
+    setupAuthListeners();
+    showToast('Signed out');
+  });
+
   // Suggest Description button
   document.getElementById('suggestDescBtn').addEventListener('click', () => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -183,9 +301,8 @@ async function handleAddResource(e) {
         };
 
         try {
-          const res = await fetch(`${API_URL}/${existing._id}`, {
+          const res = await authFetch(`${API_URL}/${existing._id}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(updatePayload)
           });
 
@@ -218,9 +335,8 @@ async function handleAddResource(e) {
   };
 
   try {
-    const res = await fetch(API_URL, {
+    const res = await authFetch(API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
 
@@ -290,7 +406,7 @@ function convertTimestampToSeconds(ts) {
 // Fetch resources from Express backend
 async function fetchResources() {
   try {
-    const res = await fetch(API_URL);
+    const res = await authFetch(API_URL);
     if (res.ok) {
       allResources = await res.json();
       updateStats();
@@ -500,9 +616,8 @@ function filterAndRenderList() {
 // Update status
 async function updateStatus(id, newStatus) {
   try {
-    const res = await fetch(`${API_URL}/${id}`, {
+    const res = await authFetch(`${API_URL}/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus })
     });
     if (res.ok) {
@@ -517,7 +632,7 @@ async function updateStatus(id, newStatus) {
 // Delete item
 async function deleteItem(id) {
   try {
-    const res = await fetch(`${API_URL}/${id}`, {
+    const res = await authFetch(`${API_URL}/${id}`, {
       method: 'DELETE'
     });
     if (res.ok) {
