@@ -1,4 +1,4 @@
-﻿const { OAuth2Client } = require("google-auth-library");
+const { OAuth2Client } = require("google-auth-library");
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -22,7 +22,11 @@ const protect = async (req, res, next) => {
     try {
       const ticket = await client.verifyIdToken({
         idToken: token,
-        audience: process.env.GOOGLE_CLIENT_ID,
+        audience: [
+          process.env.GOOGLE_CLIENT_ID,
+          '879958487653-kf3eouuq239is14lqfmhaifv60oi73u9.apps.googleusercontent.com',
+          '879958487653-k4t24q8c1dvop1d9clus7r4oa2ijh8qr.apps.googleusercontent.com'
+        ].filter(Boolean),
       });
       const payload = ticket.getPayload();
       req.user = {
