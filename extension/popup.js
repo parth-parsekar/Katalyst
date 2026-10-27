@@ -2,9 +2,12 @@ const API_URL = 'https://katalyst-fybi.onrender.com/api/resources';
 const AUTH_URL = 'https://katalyst-fybi.onrender.com/api/auth/me';
 
 let allResources = [];
-let currentToken  = null;   // Google access token for this session
+let currentToken = null;   // Google access token for this session
 
 // ── Auth helpers ─────────────────────────────────────────────────────────────
+
+/** Wrapper around fetch() that always injects the Bearer token. */
+const GOOGLE_CLIENT_ID = '879958487653-k4t24q8c1dvop1d9clus7r4oa2ijh8qr.apps.googleusercontent.com';
 
 /** Wrapper around fetch() that always injects the Bearer token. */
 async function authFetch(url, options = {}) {
@@ -19,16 +22,92 @@ async function authFetch(url, options = {}) {
   });
 }
 
-/** Get a Google access token. interactive=false = silent (no popup). */
+/** Get a Google access token via chrome.identity.getAuthToken with a safety timeout. */
 function getGoogleToken(interactive) {
   return new Promise((resolve, reject) => {
-    chrome.identity.getAuthToken({ interactive }, (token) => {
-      if (chrome.runtime.lastError || !token) {
-        reject(chrome.runtime.lastError || new Error('No token'));
-      } else {
-        resolve(token);
+    const timeoutMs = interactive ? 45000 : 1500;
+    let settled = false;
+
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        console.warn(`[Katalyst] getAuthToken timed out after ${timeoutMs}ms (interactive: ${interactive})`);
+        reject(new Error(interactive ? 'Sign-in timed out. Please try again.' : 'Silent auth timed out'));
       }
-    });
+    }, timeoutMs);
+
+    try {
+      console.log(`[Katalyst] Requesting Google token (interactive: ${interactive})...`);
+      chrome.identity.getAuthToken({ interactive }, (token) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+
+        if (chrome.runtime.lastError) {
+          console.warn('[Katalyst] chrome.identity.getAuthToken error:', chrome.runtime.lastError.message);
+          reject(new Error(chrome.runtime.lastError.message));
+        } else if (!token) {
+          console.warn('[Katalyst] No token returned from getAuthToken');
+          reject(new Error('No token returned from Google'));
+        } else {
+          console.log('[Katalyst] Received token from getAuthToken successfully!');
+          resolve(token);
+        }
+      });
+    } catch (err) {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        reject(err);
+      }
+    }
+  });
+}
+
+/** Fallback for Brave or standalone browser profiles: launchWebAuthFlow */
+function launchWebAuthFlowGoogle() {
+  return new Promise((resolve, reject) => {
+    try {
+      const redirectUri = chrome.identity.getRedirectURL();
+      console.log('[Katalyst] Fallback launchWebAuthFlow redirect URI:', redirectUri);
+
+      const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' +
+        `client_id=${encodeURIComponent(GOOGLE_CLIENT_ID)}` +
+        `&response_type=token` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+        `&scope=${encodeURIComponent('openid email profile')}` +
+        `&prompt=select_account`;
+
+      chrome.identity.launchWebAuthFlow({
+        url: authUrl,
+        interactive: true
+      }, (redirectUrl) => {
+        if (chrome.runtime.lastError) {
+          console.error('[Katalyst] launchWebAuthFlow runtime error:', chrome.runtime.lastError.message);
+          return reject(new Error(chrome.runtime.lastError.message));
+        }
+        if (!redirectUrl) {
+          return reject(new Error('Authentication window closed'));
+        }
+        try {
+          const url = new URL(redirectUrl);
+          const hash = url.hash ? url.hash.substring(1) : '';
+          const params = new URLSearchParams(hash || url.search);
+          const token = params.get('access_token');
+          if (token) {
+            console.log('[Katalyst] Received token via launchWebAuthFlow successfully!');
+            resolve(token);
+          } else {
+            const err = params.get('error') || 'No access token in redirect response';
+            reject(new Error(err));
+          }
+        } catch (e) {
+          reject(e);
+        }
+      });
+    } catch (e) {
+      reject(e);
+    }
   });
 }
 
@@ -41,10 +120,10 @@ function revokeToken(token) {
 
 /** Show the main app UI and populate the user chip. */
 function showAppUI(user) {
-  document.getElementById('loginScreen').style.display  = 'none';
-  document.getElementById('appContent').style.display   = 'block';
-  document.getElementById('openWebBtn').style.display   = 'flex';
-  document.getElementById('userChip').style.display     = 'flex';
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appContent').style.display = 'block';
+  document.getElementById('openWebBtn').style.display = 'flex';
+  document.getElementById('userChip').style.display = 'flex';
 
   const avatar = document.getElementById('userAvatar');
   const nameEl = document.getElementById('userName');
@@ -59,20 +138,23 @@ function showAppUI(user) {
 
 /** Show the login screen and hide everything else. */
 function showLoginUI() {
-  document.getElementById('loginScreen').style.display  = 'flex';
-  document.getElementById('appContent').style.display   = 'none';
-  document.getElementById('openWebBtn').style.display   = 'none';
-  document.getElementById('userChip').style.display     = 'none';
-  document.getElementById('loginError').style.display   = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('appContent').style.display = 'none';
+  document.getElementById('openWebBtn').style.display = 'none';
+  document.getElementById('userChip').style.display = 'none';
+  document.getElementById('loginError').style.display = 'none';
 }
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', async () => {
-  showLoginUI(); // default: hide app until auth confirmed
+  console.log('[Katalyst] Popup loaded.');
+  // Always attach listeners immediately so the button is NEVER unresponsive
+  setupAuthListeners();
+  showLoginUI();
 
   try {
-    // Try silent sign-in first (no popup if already authorised)
+    // Try silent sign-in first (times out quickly if not signed in)
     const token = await getGoogleToken(false);
     currentToken = token;
 
@@ -86,25 +168,58 @@ document.addEventListener('DOMContentLoaded', async () => {
     autoCaptureCurrentTab();
     fetchResources();
     setupEventListeners();
-  } catch (_) {
-    // Not signed in yet — show login screen
+  } catch (e) {
+    console.log('[Katalyst] Silent auth not ready:', e.message);
     showLoginUI();
-    setupAuthListeners();
   }
 });
 
-/** Wire up Google sign-in and sign-out buttons. */
+let authListenersAttached = false;
+/** Wire up Google sign-in button. */
 function setupAuthListeners() {
-  document.getElementById('googleSignInBtn').addEventListener('click', async () => {
-    const errEl = document.getElementById('loginError');
+  if (authListenersAttached) return;
+  authListenersAttached = true;
+
+  const btn = document.getElementById('googleSignInBtn');
+  const errEl = document.getElementById('loginError');
+  if (!btn) return;
+
+  btn.addEventListener('click', async () => {
+    console.log('[Katalyst] Continue with Google button clicked!');
     errEl.style.display = 'none';
+
+    // Show loading state on the button
+    const originalContent = btn.innerHTML;
+    btn.disabled = true;
+    btn.style.opacity = '0.7';
+    btn.innerHTML = `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="animation: spin 1s linear infinite;">
+        <circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
+        <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor"></path>
+      </svg>
+      Connecting to Google...
+    `;
+
     try {
-      const token = await getGoogleToken(true); // interactive = show popup
+      let token = null;
+      try {
+        token = await getGoogleToken(true);
+      } catch (primaryErr) {
+        console.warn('[Katalyst] getAuthToken failed, trying launchWebAuthFlow fallback...', primaryErr.message);
+        token = await launchWebAuthFlowGoogle();
+      }
+
       currentToken = token;
+      console.log('[Katalyst] Acquired token! Verifying with backend:', AUTH_URL);
+      btn.innerHTML = 'Verifying with server...';
 
       const meRes = await authFetch(AUTH_URL);
-      if (!meRes.ok) throw new Error('Token rejected');
+      if (!meRes.ok) {
+        const errJson = await meRes.json().catch(() => ({}));
+        throw new Error(errJson.message || `Server rejected token (${meRes.status})`);
+      }
       const user = await meRes.json();
+      console.log('[Katalyst] Logged in successfully as:', user.email);
 
       showAppUI(user);
       initTabs();
@@ -112,7 +227,17 @@ function setupAuthListeners() {
       fetchResources();
       setupEventListeners();
     } catch (err) {
+      console.error('[Katalyst] Authentication failed:', err);
+      let msg = err.message || 'Sign-in failed. Please try again.';
+      if (msg.includes('browser signin') || msg.includes('timed out') || msg.includes('OAuth2 not granted') || msg.includes('turned off')) {
+        msg += `<br><br><span style="color: #cbd5e1; font-weight: normal; font-size: 0.72rem; line-height: 1.4; display: block;">Notice: If using <strong>Brave Browser</strong>, please open <code style="color:#06b6d4; background: rgba(0,0,0,0.3); padding: 2px 4px; border-radius: 4px;">brave://settings/extensions</code> and switch ON <strong>"Allow Google login for extensions"</strong>, then reload the extension.</span>`;
+      }
+      errEl.innerHTML = msg;
       errEl.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      btn.innerHTML = originalContent;
     }
   });
 }
@@ -214,7 +339,7 @@ function setupEventListeners() {
 
   // Open Web App
   document.getElementById('openWebBtn').addEventListener('click', () => {
-    chrome.tabs.create({ url: 'https://katalyst-app.netlify.app' });
+    chrome.tabs.create({ url: 'https://katalyst-tool.vercel.app/' });
   });
 
   // Sign out
@@ -366,7 +491,7 @@ function extractYouTubeVideoId(url) {
     } else if (parsed.hostname.includes('youtu.be')) {
       return parsed.pathname.slice(1).split('?')[0];
     }
-  } catch (_) {}
+  } catch (_) { }
   return null;
 }
 
@@ -497,7 +622,7 @@ function autoSuggestDescription(tabId, userTriggered = false) {
 function populateCategoryFilter() {
   const filterSelect = document.getElementById('filterCategory');
   const categories = [...new Set(allResources.map(r => r.category).filter(Boolean))];
-  
+
   // Keep "All" option, clear the rest
   filterSelect.innerHTML = '<option value="All">All Categories</option>';
   categories.forEach(cat => {
@@ -514,7 +639,7 @@ function updateCategorySuggestions() {
   if (!datalist) return;
   const existingValues = new Set(Array.from(datalist.options).map(o => o.value));
   const usedCategories = [...new Set(allResources.map(r => r.category).filter(Boolean))];
-  
+
   usedCategories.forEach(cat => {
     if (!existingValues.has(cat)) {
       const opt = document.createElement('option');
